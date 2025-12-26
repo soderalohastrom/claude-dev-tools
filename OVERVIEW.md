@@ -8,6 +8,7 @@ A lightweight toolkit providing:
 - **Dependency Analysis** - Query imports, impact analysis, circular deps, dead code detection
 - **Progressive Reader** - Efficiently read large files (>50KB) without token overflow
 - **Large File Guard** - Hook that prevents accidental large file reads
+- **Slash Commands** - Quick access to all tools via `/deps`, `/impact`, etc.
 
 Designed to work **alongside** memory plugins like [claude-mem](https://github.com/thedotmack/claude-mem).
 
@@ -15,7 +16,7 @@ Designed to work **alongside** memory plugins like [claude-mem](https://github.c
 
 ## Quick Start
 
-### Option 1: Double-Click Install (Recommended)
+### Option 1: Double-Click Install (macOS)
 
 1. Copy `install-claude-dev-tools.command` to your project root
 2. Double-click the file
@@ -61,9 +62,19 @@ your-project/
 │   ├── lib/
 │   │   └── toon-parser.sh
 │   ├── scripts/
-│   │   └── show-deps-tree.sh
+│   │   ├── show-deps-tree.sh
+│   │   └── verify-install.sh
 │   ├── hooks/
 │   │   └── large-file-guard.sh
+│   ├── commands/
+│   │   ├── deps.md
+│   │   ├── impact.md
+│   │   ├── circular.md
+│   │   ├── deadcode.md
+│   │   ├── deps-tree.md
+│   │   ├── large-file.md
+│   │   ├── scan-deps.md
+│   │   └── verify-tools.md
 │   ├── settings.local.json       # Hook configuration
 │   └── dep-graph.toon            # Dependency graph (generated)
 └── CLAUDE.md                     # Instructions for Claude
@@ -71,9 +82,24 @@ your-project/
 
 ---
 
-## Available Commands
+## Slash Commands (Recommended)
 
-Once installed, use these in your Claude Code sessions:
+Use these in your Claude Code sessions:
+
+| Command | Description |
+|---------|-------------|
+| `/deps <file>` | What imports this file? |
+| `/impact <file>` | What breaks if I change this? |
+| `/circular` | Find circular dependencies |
+| `/deadcode` | Find unused files |
+| `/deps-tree <file>` | Visualize dependency tree |
+| `/large-file <file>` | Read large files progressively |
+| `/scan-deps` | Rebuild dependency graph |
+| `/verify-tools` | Verify installation |
+
+---
+
+## Shell Commands (Alternative)
 
 | Task | Command |
 |------|---------|
@@ -84,6 +110,31 @@ Once installed, use these in your Claude Code sessions:
 | Visualize dependency tree | `bash .claude/scripts/show-deps-tree.sh <file>` |
 | Read large file structure | `.claude/bin/progressive-reader --path <file> --list` |
 | Read specific chunk | `.claude/bin/progressive-reader --path <file> --chunk N` |
+
+---
+
+## About TOON Format
+
+The dependency graph uses [TOON (Token-Oriented Object Notation)](https://github.com/toon-format/toon) - a compact data format designed for LLM inputs.
+
+**Why TOON?**
+- ~40% fewer tokens than equivalent JSON
+- Human-readable with clear structural markers
+- Combines YAML-style indentation with CSV-style tables
+- Lossless bidirectional conversion with JSON
+
+Example `.toon` structure:
+```
+META:version=1.0,scanned=2024-12-25
+FILE:/src/auth.ts
+LANG:typescript
+IMPORTS:/src/utils.ts,/src/types.ts
+EXPORTS:login,logout,getCurrentUser
+IMPORTEDBY:/src/api.ts,/src/app.ts
+---
+FILE:/src/utils.ts
+...
+```
 
 ---
 
@@ -98,13 +149,15 @@ Run this when:
 .claude/bin/dependency-scanner --path . --output .claude/dep-graph.toon
 ```
 
+Or use the slash command: `/scan-deps`
+
 ---
 
 ## Requirements
 
 - **Go 1.20+** - For building the Go binaries
 - **Bash 4.0+** - For shell tools
-- **Python 3** - Optional, for path resolution
+- **Python 3** - For path resolution in toon-parser
 
 ---
 
@@ -134,11 +187,6 @@ Fallback (line-based chunking):
 Works with:
 - **claude-mem** - For memory and session tracking
 - **Other Claude Code plugins** - No conflicts
-
-Does NOT include:
-- Memory/capsule systems (use claude-mem instead)
-- Session sync (use claude-mem instead)
-- Discovery logging (unnecessary overhead)
 
 ---
 

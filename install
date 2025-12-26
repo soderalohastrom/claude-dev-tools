@@ -49,6 +49,7 @@ mkdir -p "$INSTALL_DIR/.claude/lib"
 mkdir -p "$INSTALL_DIR/.claude/scripts"
 mkdir -p "$INSTALL_DIR/.claude/hooks"
 mkdir -p "$INSTALL_DIR/.claude/bin"
+mkdir -p "$INSTALL_DIR/.claude/commands"
 echo "✓ Directories created"
 echo ""
 
@@ -85,15 +86,17 @@ done
 # Install scripts
 echo ""
 echo "Installing scripts..."
-if [ "$INSTALL_MODE" = "local" ]; then
-  cp "$SOURCE_DIR/scripts/show-deps-tree.sh" "$INSTALL_DIR/.claude/scripts/"
-else
-  download_file "scripts/show-deps-tree.sh" "$INSTALL_DIR/.claude/scripts/show-deps-tree.sh"
-fi
-chmod +x "$INSTALL_DIR/.claude/scripts/show-deps-tree.sh"
-echo "  ✓ show-deps-tree.sh"
+for script in show-deps-tree.sh verify-install.sh; do
+  if [ "$INSTALL_MODE" = "local" ]; then
+    cp "$SOURCE_DIR/scripts/$script" "$INSTALL_DIR/.claude/scripts/"
+  else
+    download_file "scripts/$script" "$INSTALL_DIR/.claude/scripts/$script"
+  fi
+  chmod +x "$INSTALL_DIR/.claude/scripts/$script"
+  echo "  ✓ $script"
+done
 
-# Install hook
+# Install hooks
 echo ""
 echo "Installing hooks..."
 if [ "$INSTALL_MODE" = "local" ]; then
@@ -104,11 +107,23 @@ fi
 chmod +x "$INSTALL_DIR/.claude/hooks/large-file-guard.sh"
 echo "  ✓ large-file-guard.sh"
 
+# Install slash commands
+echo ""
+echo "Installing slash commands..."
+for cmd in deps impact circular deadcode deps-tree large-file scan-deps verify-tools; do
+  if [ "$INSTALL_MODE" = "local" ]; then
+    cp "$SOURCE_DIR/commands/$cmd.md" "$INSTALL_DIR/.claude/commands/"
+  else
+    download_file "commands/$cmd.md" "$INSTALL_DIR/.claude/commands/$cmd.md"
+  fi
+  echo "  ✓ /$cmd"
+done
+
 # Build Go tools
 if [ "$GO_AVAILABLE" = true ]; then
   echo ""
   echo "Building Go tools..."
-  
+
   if [ "$INSTALL_MODE" = "local" ]; then
     # Local build
     echo "  Building dependency-scanner..."
@@ -117,7 +132,7 @@ if [ "$GO_AVAILABLE" = true ]; then
     else
       echo "  ⚠ dependency-scanner build failed"
     fi
-    
+
     echo "  Building progressive-reader..."
     if (cd "$SOURCE_DIR/tools/progressive-reader" && go build -o "$INSTALL_DIR/.claude/bin/progressive-reader" ./cmd) 2>/dev/null; then
       echo "  ✓ progressive-reader"
@@ -135,14 +150,14 @@ if [ "$GO_AVAILABLE" = true ]; then
       else
         echo "  ⚠ dependency-scanner build failed"
       fi
-      
+
       echo "  Building progressive-reader..."
       if (cd "$TEMP_DIR/tools/progressive-reader" && go build -o "$INSTALL_DIR/.claude/bin/progressive-reader" ./cmd) 2>/dev/null; then
         echo "  ✓ progressive-reader"
       else
         echo "  ⚠ progressive-reader build failed"
       fi
-      
+
       rm -rf "$TEMP_DIR"
     else
       echo "  ⚠ Could not clone repository for Go build"
@@ -184,19 +199,22 @@ CLAUDE_CONTENT='# Claude Dev Tools
 
 Dependency analysis and large file tools.
 
-## Quick Reference
+## Slash Commands
 
-| Task | Command |
-|------|---------|
-| What imports this file? | `bash .claude/tools/query-deps/query-deps.sh <file>` |
-| What breaks if I change X? | `bash .claude/tools/impact-analysis/impact-analysis.sh <file>` |
-| Find circular dependencies | `bash .claude/tools/find-circular/find-circular.sh` |
-| Find unused files | `bash .claude/tools/find-dead-code/find-dead-code.sh` |
-| Visualize dependency tree | `bash .claude/scripts/show-deps-tree.sh <file>` |
+| Command | Description |
+|---------|-------------|
+| `/deps <file>` | What imports this file? |
+| `/impact <file>` | What breaks if I change this? |
+| `/circular` | Find circular dependencies |
+| `/deadcode` | Find unused files |
+| `/deps-tree <file>` | Visualize dependency tree |
+| `/large-file <file>` | Read large file progressively |
+| `/scan-deps` | Rebuild dependency graph |
+| `/verify-tools` | Verify installation |
 
 ## Large Files (>50KB)
 
-Use progressive-reader instead of Read tool:
+The PreToolUse hook blocks Read on files over 50KB. Use `/large-file` or:
 
 ```bash
 .claude/bin/progressive-reader --path <file> --list    # See structure
@@ -249,13 +267,15 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "✅ Claude Dev Tools Installed!"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "Commands available:"
-echo "  bash .claude/tools/query-deps/query-deps.sh <file>"
-echo "  bash .claude/tools/impact-analysis/impact-analysis.sh <file>"
-echo "  bash .claude/tools/find-circular/find-circular.sh"
-echo "  bash .claude/tools/find-dead-code/find-dead-code.sh"
-echo "  bash .claude/scripts/show-deps-tree.sh <file>"
-if [ -f "$INSTALL_DIR/.claude/bin/progressive-reader" ]; then
-  echo "  .claude/bin/progressive-reader --path <file> --list"
-fi
+echo "Slash commands available:"
+echo "  /deps <file>       - Query file dependencies"
+echo "  /impact <file>     - Impact analysis"
+echo "  /circular          - Find circular dependencies"
+echo "  /deadcode          - Find unused files"
+echo "  /deps-tree <file>  - Visualize dependency tree"
+echo "  /large-file <file> - Read large files progressively"
+echo "  /scan-deps         - Rebuild dependency graph"
+echo "  /verify-tools      - Verify installation"
+echo ""
+echo "Run /verify-tools to confirm everything is working."
 echo ""

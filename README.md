@@ -7,7 +7,7 @@ Lean dependency analysis and large file tools for Claude Code. Designed to work 
 - **Dependency Analysis** - Query imports, find circular dependencies, impact analysis
 - **Progressive Reader** - Read large files efficiently (75-97% token savings)
 - **Large File Guard** - Automatically blocks reads on files >50KB
-- **Zero Memory Overhead** - No capsule system, no session tracking
+- **TOON Format** - Token-optimized dependency graphs (~40% fewer tokens than JSON)
 
 ## Installation
 
@@ -25,15 +25,34 @@ bash /path/to/claude-dev-tools/install
 curl -fsSL https://raw.githubusercontent.com/soderalohastrom/claude-dev-tools/main/install | bash
 ```
 
+### Double-Click Install (macOS)
+
+Copy `install-claude-dev-tools.command` to your project root and double-click.
+
 ## Requirements
 
 - **Go 1.20+** - For building dependency-scanner and progressive-reader
 - **Bash 4.0+** - For shell tools
-- **Python 3** - Optional, for path resolution
+- **Python 3** - For path resolution in toon-parser
 
 ## Usage
 
-### Dependency Tools
+### Slash Commands (Recommended)
+
+After installation, use these in Claude Code:
+
+```
+/deps src/auth.ts           # What imports this file?
+/impact src/auth.ts         # What breaks if I change this?
+/circular                   # Find circular dependencies
+/deadcode                   # Find unused files
+/deps-tree src/auth.ts      # Visualize dependency tree
+/large-file src/big.ts      # Read large file progressively
+/scan-deps                  # Rebuild dependency graph
+/verify-tools               # Verify installation
+```
+
+### Shell Commands (Alternative)
 
 ```bash
 # What imports this file?
@@ -77,22 +96,35 @@ Run after pulling new code or when imports change:
 3. **progressive-reader** (Go) uses tree-sitter to chunk large files intelligently
 4. **large-file-guard** hook intercepts Read tool calls and blocks files >50KB
 
+## About TOON Format
+
+The dependency graph uses [TOON (Token-Oriented Object Notation)](https://github.com/toon-format/toon) - a compact data format designed for LLM inputs.
+
+**Why TOON?**
+- ~40% fewer tokens than equivalent JSON
+- Human-readable with clear structural markers
+- Combines YAML-style indentation with CSV-style tables
+- Lossless bidirectional conversion with JSON
+
+Example `.toon` structure:
+```
+META:version=1.0,scanned=2024-12-25
+FILE:/src/auth.ts
+LANG:typescript
+IMPORTS:/src/utils.ts,/src/types.ts
+EXPORTS:login,logout,getCurrentUser
+IMPORTEDBY:/src/api.ts,/src/app.ts
+---
+FILE:/src/utils.ts
+...
+```
+
 ## Supported Languages
 
 - TypeScript / JavaScript (full AST parsing)
 - Python (full AST parsing)
 - Go (full AST parsing)
 - Other languages (line-based chunking fallback)
-
-## Comparison to Super Claude Kit
-
-| Aspect | Claude Dev Tools | Super Claude Kit |
-|--------|-----------------|------------------|
-| Focus | Code analysis only | Memory + analysis |
-| CLAUDE.md | ~40 lines | ~300+ lines |
-| Hooks | 1 (large-file-guard) | 6+ |
-| Memory system | None (use claude-mem) | Capsule + sync |
-| Token overhead | Minimal | Significant |
 
 ## License
 

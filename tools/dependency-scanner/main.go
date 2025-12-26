@@ -30,7 +30,7 @@ func main() {
 	flag.Parse()
 
 	if *versionFlag {
-		fmt.Println("Claude Capsule Kit Dependency Scanner v1.1.1")
+		fmt.Println("Claude Dev Tools - Dependency Scanner v1.0.0")
 		fmt.Println("Built with tree-sitter for accurate multi-language parsing")
 		os.Exit(0)
 	}

@@ -1,36 +1,36 @@
 # Claude Dev Tools
 
-Lean dependency analysis and large file tools for Claude Code.
+Dependency analysis and large file tools.
 
-## Quick Reference
+## Slash Commands
 
-| Task | Command |
-|------|---------|
-| What imports this file? | `bash .claude/tools/query-deps/query-deps.sh <file>` |
-| What breaks if I change X? | `bash .claude/tools/impact-analysis/impact-analysis.sh <file>` |
-| Find circular dependencies | `bash .claude/tools/find-circular/find-circular.sh` |
-| Find unused files | `bash .claude/tools/find-dead-code/find-dead-code.sh` |
-| Visualize dependency tree | `bash .claude/scripts/show-deps-tree.sh <file>` |
+| Command | Description |
+|---------|-------------|
+| `/deps <file>` | What imports this file? |
+| `/impact <file>` | What breaks if I change this? |
+| `/circular` | Find circular dependencies |
+| `/deadcode` | Find unused files |
+| `/deps-tree <file>` | Visualize dependency tree |
+| `/large-file <file>` | Read large files progressively |
+| `/scan-deps` | Rebuild dependency graph |
+| `/verify-tools` | Verify installation |
 
 ## Large Files (>50KB)
 
-The PreToolUse hook blocks Read on files over 50KB. Use progressive-reader instead:
+The PreToolUse hook blocks Read on files over 50KB. Use `/large-file` or:
 
 ```bash
-# See file structure (~500 tokens vs full read)
-.claude/bin/progressive-reader --path <file> --list
-
-# Read specific chunk
-.claude/bin/progressive-reader --path <file> --chunk N
+.claude/bin/progressive-reader --path <file> --list    # See structure
+.claude/bin/progressive-reader --path <file> --chunk N  # Read chunk
 ```
 
 ## Rebuild Dependency Graph
 
-Run when imports change or after pulling new code:
-
 ```bash
 .claude/bin/dependency-scanner --path . --output .claude/dep-graph.toon
 ```
+
+Or use: `/scan-deps`
 
 ## Compatibility
 
