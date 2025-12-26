@@ -14,7 +14,7 @@ echo "Project: $(pwd)"
 echo ""
 
 # Run the remote install
-curl -fsSL https://raw.githubusercontent.com/soderalohastrom/claude-dev-tools/main/install | bash
+curl -fsSL https://raw.githubusercontent.com/soderalohastrom/claude-dev-tools/master/install | bash
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
