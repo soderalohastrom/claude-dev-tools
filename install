@@ -1,0 +1,261 @@
+#!/bin/bash
+# Claude Dev Tools - Installation Script
+# Dependency analysis and large file tools for Claude Code
+
+set -eo pipefail
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🔧 Claude Dev Tools Installation"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+GITHUB_REPO="soderalohastrom/claude-dev-tools"
+GITHUB_BRANCH="main"
+INSTALL_DIR="${PWD}"
+
+# Detect local vs remote install
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd || echo "")"
+INSTALL_MODE="remote"
+SOURCE_DIR=""
+
+if [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/manifest.json" ]; then
+  INSTALL_MODE="local"
+  SOURCE_DIR="$SCRIPT_DIR"
+  echo "📦 Local installation from: $SOURCE_DIR"
+else
+  echo "🌐 Remote installation from GitHub"
+fi
+echo ""
+
+# Check for Go
+GO_AVAILABLE=false
+if command -v go &>/dev/null; then
+  GO_VERSION=$(go version | grep -oE 'go[0-9]+\.[0-9]+' | head -1)
+  echo "✓ Go found: $GO_VERSION"
+  GO_AVAILABLE=true
+else
+  echo "⚠ Go not found - Go tools will not be built"
+  echo "  Install from: https://go.dev/dl/"
+fi
+echo ""
+
+# Create directories
+echo "Creating .claude directories..."
+mkdir -p "$INSTALL_DIR/.claude/tools/query-deps"
+mkdir -p "$INSTALL_DIR/.claude/tools/impact-analysis"
+mkdir -p "$INSTALL_DIR/.claude/tools/find-circular"
+mkdir -p "$INSTALL_DIR/.claude/tools/find-dead-code"
+mkdir -p "$INSTALL_DIR/.claude/lib"
+mkdir -p "$INSTALL_DIR/.claude/scripts"
+mkdir -p "$INSTALL_DIR/.claude/hooks"
+mkdir -p "$INSTALL_DIR/.claude/bin"
+echo "✓ Directories created"
+echo ""
+
+# Download function for remote installs
+download_file() {
+  local path="$1"
+  local dest="$2"
+  curl -fsSL "https://raw.githubusercontent.com/$GITHUB_REPO/$GITHUB_BRANCH/$path" -o "$dest"
+}
+
+# Install lib
+echo "Installing lib..."
+if [ "$INSTALL_MODE" = "local" ]; then
+  cp "$SOURCE_DIR/lib/toon-parser.sh" "$INSTALL_DIR/.claude/lib/"
+else
+  download_file "lib/toon-parser.sh" "$INSTALL_DIR/.claude/lib/toon-parser.sh"
+fi
+chmod +x "$INSTALL_DIR/.claude/lib/toon-parser.sh"
+echo "  ✓ toon-parser.sh"
+
+# Install shell tools
+echo ""
+echo "Installing tools..."
+for tool in query-deps impact-analysis find-circular find-dead-code; do
+  if [ "$INSTALL_MODE" = "local" ]; then
+    cp "$SOURCE_DIR/tools/$tool/$tool.sh" "$INSTALL_DIR/.claude/tools/$tool/"
+  else
+    download_file "tools/$tool/$tool.sh" "$INSTALL_DIR/.claude/tools/$tool/$tool.sh"
+  fi
+  chmod +x "$INSTALL_DIR/.claude/tools/$tool/$tool.sh"
+  echo "  ✓ $tool"
+done
+
+# Install scripts
+echo ""
+echo "Installing scripts..."
+if [ "$INSTALL_MODE" = "local" ]; then
+  cp "$SOURCE_DIR/scripts/show-deps-tree.sh" "$INSTALL_DIR/.claude/scripts/"
+else
+  download_file "scripts/show-deps-tree.sh" "$INSTALL_DIR/.claude/scripts/show-deps-tree.sh"
+fi
+chmod +x "$INSTALL_DIR/.claude/scripts/show-deps-tree.sh"
+echo "  ✓ show-deps-tree.sh"
+
+# Install hook
+echo ""
+echo "Installing hooks..."
+if [ "$INSTALL_MODE" = "local" ]; then
+  cp "$SOURCE_DIR/hooks/large-file-guard.sh" "$INSTALL_DIR/.claude/hooks/"
+else
+  download_file "hooks/large-file-guard.sh" "$INSTALL_DIR/.claude/hooks/large-file-guard.sh"
+fi
+chmod +x "$INSTALL_DIR/.claude/hooks/large-file-guard.sh"
+echo "  ✓ large-file-guard.sh"
+
+# Build Go tools
+if [ "$GO_AVAILABLE" = true ]; then
+  echo ""
+  echo "Building Go tools..."
+  
+  if [ "$INSTALL_MODE" = "local" ]; then
+    # Local build
+    echo "  Building dependency-scanner..."
+    if (cd "$SOURCE_DIR/tools/dependency-scanner" && go build -o "$INSTALL_DIR/.claude/bin/dependency-scanner" .) 2>/dev/null; then
+      echo "  ✓ dependency-scanner"
+    else
+      echo "  ⚠ dependency-scanner build failed"
+    fi
+    
+    echo "  Building progressive-reader..."
+    if (cd "$SOURCE_DIR/tools/progressive-reader" && go build -o "$INSTALL_DIR/.claude/bin/progressive-reader" ./cmd) 2>/dev/null; then
+      echo "  ✓ progressive-reader"
+    else
+      echo "  ⚠ progressive-reader build failed"
+    fi
+  else
+    # Remote build - clone to temp dir
+    echo "  Cloning repository for Go build..."
+    TEMP_DIR=$(mktemp -d)
+    if git clone --depth 1 "https://github.com/$GITHUB_REPO.git" "$TEMP_DIR" 2>/dev/null; then
+      echo "  Building dependency-scanner..."
+      if (cd "$TEMP_DIR/tools/dependency-scanner" && go build -o "$INSTALL_DIR/.claude/bin/dependency-scanner" .) 2>/dev/null; then
+        echo "  ✓ dependency-scanner"
+      else
+        echo "  ⚠ dependency-scanner build failed"
+      fi
+      
+      echo "  Building progressive-reader..."
+      if (cd "$TEMP_DIR/tools/progressive-reader" && go build -o "$INSTALL_DIR/.claude/bin/progressive-reader" ./cmd) 2>/dev/null; then
+        echo "  ✓ progressive-reader"
+      else
+        echo "  ⚠ progressive-reader build failed"
+      fi
+      
+      rm -rf "$TEMP_DIR"
+    else
+      echo "  ⚠ Could not clone repository for Go build"
+    fi
+  fi
+fi
+
+# Configure settings.local.json
+echo ""
+echo "Configuring hooks..."
+if [ ! -f "$INSTALL_DIR/.claude/settings.local.json" ]; then
+  cat > "$INSTALL_DIR/.claude/settings.local.json" << 'SETTINGS'
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/large-file-guard.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+SETTINGS
+  echo "✓ Created settings.local.json"
+else
+  echo "⚠ settings.local.json exists"
+  echo "  Add this hook manually if needed:"
+  echo '  "PreToolUse": [{"matcher": "*", "hooks": [{"type": "command", "command": "bash .claude/hooks/large-file-guard.sh"}]}]'
+fi
+
+# Create/update CLAUDE.md
+echo ""
+CLAUDE_CONTENT='# Claude Dev Tools
+
+Dependency analysis and large file tools.
+
+## Quick Reference
+
+| Task | Command |
+|------|---------|
+| What imports this file? | `bash .claude/tools/query-deps/query-deps.sh <file>` |
+| What breaks if I change X? | `bash .claude/tools/impact-analysis/impact-analysis.sh <file>` |
+| Find circular dependencies | `bash .claude/tools/find-circular/find-circular.sh` |
+| Find unused files | `bash .claude/tools/find-dead-code/find-dead-code.sh` |
+| Visualize dependency tree | `bash .claude/scripts/show-deps-tree.sh <file>` |
+
+## Large Files (>50KB)
+
+Use progressive-reader instead of Read tool:
+
+```bash
+.claude/bin/progressive-reader --path <file> --list    # See structure
+.claude/bin/progressive-reader --path <file> --chunk N  # Read chunk
+```
+
+## Rebuild Dependency Graph
+
+```bash
+.claude/bin/dependency-scanner --path . --output .claude/dep-graph.toon
+```'
+
+if [ ! -f "$INSTALL_DIR/CLAUDE.md" ]; then
+  echo "$CLAUDE_CONTENT" > "$INSTALL_DIR/CLAUDE.md"
+  echo "✓ Created CLAUDE.md"
+elif ! grep -q "Claude Dev Tools" "$INSTALL_DIR/CLAUDE.md" 2>/dev/null; then
+  echo "" >> "$INSTALL_DIR/CLAUDE.md"
+  echo "---" >> "$INSTALL_DIR/CLAUDE.md"
+  echo "" >> "$INSTALL_DIR/CLAUDE.md"
+  echo "$CLAUDE_CONTENT" >> "$INSTALL_DIR/CLAUDE.md"
+  echo "✓ Appended to CLAUDE.md"
+else
+  echo "✓ CLAUDE.md already has Claude Dev Tools section"
+fi
+
+# Update .gitignore
+echo ""
+echo "Updating .gitignore..."
+touch "$INSTALL_DIR/.gitignore"
+for entry in ".claude/bin/" ".claude/dep-graph.toon"; do
+  if ! grep -q "^${entry}$" "$INSTALL_DIR/.gitignore" 2>/dev/null; then
+    echo "$entry" >> "$INSTALL_DIR/.gitignore"
+  fi
+done
+echo "✓ .gitignore updated"
+
+# Build initial dep graph
+if [ -f "$INSTALL_DIR/.claude/bin/dependency-scanner" ]; then
+  echo ""
+  echo "Building dependency graph..."
+  if "$INSTALL_DIR/.claude/bin/dependency-scanner" --path "$INSTALL_DIR" --output "$INSTALL_DIR/.claude/dep-graph.toon" 2>/dev/null; then
+    echo "✓ Dependency graph built"
+  else
+    echo "⚠ Could not build dependency graph (run manually later)"
+  fi
+fi
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "✅ Claude Dev Tools Installed!"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "Commands available:"
+echo "  bash .claude/tools/query-deps/query-deps.sh <file>"
+echo "  bash .claude/tools/impact-analysis/impact-analysis.sh <file>"
+echo "  bash .claude/tools/find-circular/find-circular.sh"
+echo "  bash .claude/tools/find-dead-code/find-dead-code.sh"
+echo "  bash .claude/scripts/show-deps-tree.sh <file>"
+if [ -f "$INSTALL_DIR/.claude/bin/progressive-reader" ]; then
+  echo "  .claude/bin/progressive-reader --path <file> --list"
+fi
+echo ""

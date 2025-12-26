@@ -1,0 +1,11 @@
+# Build artifacts
+.claude/bin/
+.claude/dep-graph.toon
+
+# OS files
+.DS_Store
+*.swp
+*~
+
+# Test artifacts
+testdata/

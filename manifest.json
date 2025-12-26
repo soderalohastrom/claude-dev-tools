@@ -1,0 +1,33 @@
+{
+  "name": "claude-dev-tools",
+  "version": "1.0.0",
+  "author": "soderalohastrom",
+  "description": "Lean dependency analysis and large file tools for Claude Code",
+  "repository": "https://github.com/soderalohastrom/claude-dev-tools",
+  "components": {
+    "lib": [
+      "toon-parser.sh"
+    ],
+    "tools": [
+      "dependency-scanner",
+      "progressive-reader",
+      "query-deps",
+      "impact-analysis",
+      "find-circular",
+      "find-dead-code"
+    ],
+    "scripts": [
+      "show-deps-tree.sh"
+    ],
+    "hooks": [
+      "large-file-guard.sh"
+    ]
+  },
+  "requires": {
+    "go": "1.20+",
+    "bash": "4.0+"
+  },
+  "optional": {
+    "python3": "For path resolution in toon-parser"
+  }
+}
